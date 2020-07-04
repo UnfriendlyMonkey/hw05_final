@@ -2,9 +2,13 @@
 {% load cache %}
 {% block title %}Последние записи избранных авторов{% endblock %}
 
-{% block header %}Последние записи избранных авторов{% endblock %}
 {% block content %}
 {% include "menu.html" with follow=True %}
+{% if user.follower.count == 0%}
+    <h2>У Вас нет избранных авторов</h2>
+{% else %}
+    <h2>Последние записи избранных авторов</h2>
+{% endif %}
 {% cache 20 index_page %}
     {% for post in page %}
             {% include "postcard.html" with author=post.author %}

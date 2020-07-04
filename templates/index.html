@@ -2,10 +2,10 @@
 {% load cache %}
 {% block title %}Последние обновления на сайте{% endblock %}
 
-{% block header %}Последние обновления на сайте{% endblock %}
 {% block content %}
 {% include "menu.html" with index=True %}
-{% cache 1 index_page %}
+<h2>Последние обновления на сайте</h2>
+{% comment %} {% cache 1 index_page %} {% endcomment %}
     {% for post in page %}
             {% include "postcard.html" with author=post.author %}
     {% endfor %}
@@ -13,5 +13,5 @@
     {% if page.has_other_pages %}
         {% include "paginator.html" with items=page paginator=paginator %}
     {% endif %}
-{% endcache %}
+{% comment %} {% endcache %} {% endcomment %}
 {% endblock %}

@@ -1,10 +1,11 @@
 from django.test import TestCase, Client
-from .models import Post, Group, User
+from .models import Post, Group, User, Follow, Comment
+from .forms import PostForm
 from django.urls import reverse
 
 
 class TestUnauthorizedUser(TestCase):
-    def set_up(self):
+    def setUp(self):
         self.client = Client()
 
     def test_unauthorized_create_post(self):
@@ -105,7 +106,7 @@ class TestAuthorizedUser(TestCase):
 
 
 class TestErrorPages(TestCase):
-    def set_up(self):
+    def setUp(self):
         self.client = Client()
 
     def test_404(self):
@@ -146,26 +147,32 @@ class TestImageUpload(TestCase):
 
     def test_image_post_edit(self):
         self.group_2 = Group.objects.create(title="just another group", slug="jag")
-        with open('posts/media/file.jpg','rb') as img:
-                post = self.client.post(
-                    reverse("new_post"),
-                    {'text': 'post with no-image', 'image': img}
+        with open('posts/media/file_2.jpg','rb') as img:
+            post = self.client.post(
+                    reverse("post_edit",
+                        kwargs={"username": "kenga", "post_id": 1}
+                        ),
+                    {'text': 'changed post with image', 'image': img, 'group': self.group_2.id}
                     )
+        self.assertEqual(Post.objects.count(), 1)
         response = self.client.get(reverse("group_posts", kwargs={"slug": "jag"}))
         self.assertContains(response, "<img")
 
     
     def test_non_image_upload(self):
+        self.assertEqual(Post.objects.count(), 1)
         with open('posts/urls.py','rb') as img:
                 post = self.client.post(
-                    reverse("post_edit",
-                        kwargs={"username": "kenga", "post_id": 1}
-                        ),
-                    {'text': 'changed post with image', 'image': img, 'group': self.group.id}
+                    reverse("new_post"),
+                    {'text': 'post with no-image', 'image': img}
                     )
-        self.assertEqual(Post.objects.count(), 1)
-        response = self.client.get(reverse("post", kwargs={"username": "kenga", "post_id": 1}))
-        self.assertContains(response, "<img")
+        self.assertFormError(
+            post,
+            form='form',
+            field='image',
+            errors='Загрузите правильное изображение. Файл, который вы загрузили, поврежден или не является изображением.',
+            msg_prefix=''
+            )
 
 
 class TestCacheIndexPage(TestCase):
