@@ -1,0 +1,18 @@
+{% extends "base.html" %} 
+{% block title %} Запись автора @{{author.username}} {% endblock %}
+
+{% block header %}Запись автора @{{author.username}}{% endblock %}
+{% block content %}
+<main role="main" class="container">
+    <div class="row">
+        <div class="col-md-3 mb-3 mt-1">
+                {% include "authorcard.html" %}   
+        </div>
+
+        <div class="col-md-9">
+                {% include "postcard.html" %}
+        </div>
+    </div>
+    {% include "comments.html" with items=comments %}
+</main>
+{% endblock %}

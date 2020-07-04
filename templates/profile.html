@@ -1,0 +1,23 @@
+{% extends "base.html" %} 
+{% block title %} Профиль автора @{{author.username}} {% endblock %}
+
+{% block header %}Профиль автора @{{author.username}}{% endblock %}
+{% block content %}
+<main role="main" class="container">
+    <div class="row">
+            <div class="col-md-3 mb-3 mt-1">
+                {% include "authorcard.html" %} 
+            </div>
+
+            <div class="col-md-9">                
+                {% for post in page %}
+                    {% include "postcard.html" %}
+                {% endfor %}
+
+                {% if page.has_other_pages %}
+                    {% include "paginator.html" with items=page paginator=paginator %}
+                {% endif %}
+           </div>
+    </div>
+</main>
+{% endblock %}
