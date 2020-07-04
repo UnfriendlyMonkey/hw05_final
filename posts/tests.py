@@ -2,6 +2,8 @@ from django.test import TestCase, Client
 from .models import Post, Group, User, Follow, Comment
 from .forms import PostForm
 from django.urls import reverse
+from django.core.cache import cache
+from django.test.utils import override_settings
 
 
 class TestUnauthorizedUser(TestCase):
@@ -13,6 +15,13 @@ class TestUnauthorizedUser(TestCase):
         self.assertEqual(response.status_code, 302, msg="New post unavailable for unauthorized")
         
 
+@override_settings(
+    CACHES={
+        'default': {
+            'BACKEND': 'django.core.cache.backends.dummy.DummyCache'
+        }
+    },
+)
 class TestAuthorizedUser(TestCase):
     def setUp(self):
         self.client = Client()
@@ -115,6 +124,13 @@ class TestErrorPages(TestCase):
         self.assertTemplateUsed("misc/404.html")
 
 
+@override_settings(
+    CACHES={
+        'default': {
+            'BACKEND': 'django.core.cache.backends.dummy.DummyCache'
+        }
+    },
+)
 class TestImageUpload(TestCase):
     def setUp(self):
         self.client = Client()
@@ -177,9 +193,113 @@ class TestImageUpload(TestCase):
 
 class TestCacheIndexPage(TestCase):
     def setUp(self):
+        cache.clear()
         self.client = Client()
+        self.user = User.objects.create_user(
+            username="kenga",
+            email="kenga@yatube.com",
+            password="Ru0987"
+        )
+        self.client.force_login(self.user)
     
     def test_if_caching(self):
+        text_1 = 'first test post to test caching'
+        post1 = self.client.post(
+            reverse('new_post'),
+            {'text': text_1}
+        )
         response_1 = self.client.get(reverse('index'))
-        self.assertEqual(len(response_1.context["page"]), 0)
+        self.assertContains(response_1, text_1)
+        text_2 = 'second post just to check'
+        post2 = self.client.post(
+            reverse('new_post'),
+            {'text': text_2}
+        )
+        response_2 = self.client.get(reverse('index'))
+        self.assertNotContains(response_2, text_2)
+
+
+@override_settings(
+    CACHES={
+        'default': {
+            'BACKEND': 'django.core.cache.backends.dummy.DummyCache'
+        }
+    },
+)
+class TestPostComments(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username="kenga",
+            email="kenga@yatube.com",
+            password="Ru0987"
+        )
+        self.post_to_comment = Post.objects.create(author=self.user, text="Just post")
+
+    def test_unauthorized_to_comment(self):
+        response = self.client.get(reverse('post', kwargs={"username": "kenga", "post_id": 1}))
+        self.assertContains(response, self.post_to_comment.text)
+        comment = self.client.get(reverse('add_comment', kwargs={"username": "kenga", "post_id": 1}))
+        self.assertEqual(comment.status_code, 302, msg='commenting not available to unauthorized')
+
+    def test_authorized_to_comment(self):
+        self.user_2 = User.objects.create_user(
+            username="snork",
+            email="snork@yatube.com",
+            password="Mummi0987"
+        )
+        self.client.force_login(self.user_2)
+        post = self.client.post(reverse('add_comment', kwargs={"username": "kenga", "post_id": 1}), {'text': 'Just comment'})
+        # self.assertEqual(comment.status_code, 200, msg='commenting available to authorized')
+        response = self.client.get(reverse('post', kwargs={"username": "kenga", "post_id": 1}))
+        self.assertContains(response, 'Just comment')
+        self.assertIsInstance(response.context["comments"][0], Comment, msg="comment added")
+        self.assertEqual(len(response.context['comments']), 1)
+
+
+@override_settings(
+    CACHES={
+        'default': {
+            'BACKEND': 'django.core.cache.backends.dummy.DummyCache'
+        }
+    },
+)
+class TestFollowSystem(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username="kenga",
+            email="kenga@yatube.com",
+            password="Ru0987"
+        )
+        self.post = Post.objects.create(author=self.user, text="Just post")
+        self.user_2 = User.objects.create_user(
+            username="snork",
+            email="snork@yatube.com",
+            password="Mummi0987"
+        )
+        self.user_3 = User.objects.create_user(
+            username="peppi",
+            email="peppi@yatube.com",
+            password="Stocking0987"
+        )
+
+    def test_follow(self):
+        self.client.force_login(self.user)
+        follow = self.client.get(reverse('profile_follow', kwargs={"username":"snork"}))
+        self.assertTrue(Follow.objects.filter(user=self.user, author=self.user_2).exists())
+        unfollow = self.client.get(reverse('profile_unfollow', kwargs={"username":"snork"}))
+        self.assertFalse(Follow.objects.filter(user=self.user, author=self.user_2).exists())
+
+    def test_following_post_appearance(self):
+        link_1 = Follow.objects.create(user=self.user_3, author=self.user_2)
+        link_2 = Follow.objects.create(user=self.user_3, author=self.user)
+        link_3 = Follow.objects.create(user=self.user_2, author=self.user_3)
+        self.client.force_login(self.user_3)
+        response_1 = self.client.get(reverse('follow_index'))
+        self.assertEqual(len(response_1.context["page"]), 1, msg="post in follower follow index page")
+        self.client.logout()
+        self.client.force_login(self.user_2)
+        response_2 = self.client.get(reverse('follow_index'))
+        self.assertEqual(len(response_2.context['page']), 0, msg='no post in non-follower page')
 

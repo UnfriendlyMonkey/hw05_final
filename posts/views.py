@@ -129,7 +129,6 @@ def server_error(request):
 
 @login_required
 def follow_index(request):
-    # post_list = Post.objects.select_related('author').filter(author__following__user=request.user)
     post_list = Post.objects.filter(author__following__user=request.user)
     paginator = Paginator(post_list, 10)
     page_number = request.GET.get('page')
@@ -144,7 +143,6 @@ def follow_index(request):
 
 @login_required
 def profile_follow(request, username):
-    # ...
     author = get_object_or_404(User, username=username)
     if author != request.user:
         follow_link = Follow.objects.get_or_create(user=request.user, author=author)
@@ -153,9 +151,7 @@ def profile_follow(request, username):
 
 @login_required
 def profile_unfollow(request, username):
-    # ...
     author = get_object_or_404(User, username=username)
     follow_link = get_object_or_404(Follow, user=request.user, author=author)
-    # follow_link = Follow.objects.get_or_create(user=request.user, author=author)
     follow_link.delete()
     return redirect('profile', username)
