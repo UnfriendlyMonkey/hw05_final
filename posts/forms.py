@@ -18,7 +18,7 @@ class PostForm(forms.ModelForm):
         }
     
     def clean_post(self):
-        data = self.cleaned_data['text']
+        data = self.cleaned_data("text",)
         if not data:
             raise forms.ValidationError("Вы что-то хотели сказать?")
 
@@ -28,16 +28,16 @@ class PostForm(forms.ModelForm):
 class CommentForm(forms.ModelForm):
     class Meta:
         model = Comment
-        fields = ['text']
-        # labels = {
-        #     'text': ("Текст комментария"),
-        # }
-        # help_texts = {
-        #     'text': ("Введите текст Вашего комментария:"),
-        # }
+        fields = ('text',)
+        labels = {
+            'text': ("Текст комментария"),
+        }
+        help_texts = {
+            'text': ("Введите текст Вашего комментария:"),
+        }
     
     def clean_comment(self):
-        data = self.cleaned_data['text']
+        data = self.cleaned_data('text',)
         if not data:
             raise forms.ValidationError("Вы что-то хотели сказать?")
 

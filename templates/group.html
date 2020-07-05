@@ -7,10 +7,6 @@
 
     {% for post in page %}
         {% include "postcard.html" with author=post.author %}
-        {% comment %} <h3>
-        Автор: {{ post.author.get_full_name }}, Дата публикации: {{ post.pub_date|date:"d M Y" }}
-        </h3>
-        <p>{{ post.text|linebreaksbr }}</p> {% endcomment %}
     {% endfor %}
 
     {% if page.has_other_pages %}

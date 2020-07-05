@@ -4,7 +4,14 @@ from .forms import PostForm
 from django.urls import reverse
 from django.core.cache import cache
 from django.test.utils import override_settings
+from django.core.files.uploadedfile import SimpleUploadedFile
 
+
+DUMMY_CACHES={
+        'default': {
+            'BACKEND': 'django.core.cache.backends.dummy.DummyCache'
+        }
+    }
 
 class TestUnauthorizedUser(TestCase):
     def setUp(self):
@@ -16,11 +23,7 @@ class TestUnauthorizedUser(TestCase):
         
 
 @override_settings(
-    CACHES={
-        'default': {
-            'BACKEND': 'django.core.cache.backends.dummy.DummyCache'
-        }
-    },
+    CACHES=DUMMY_CACHES,
 )
 class TestAuthorizedUser(TestCase):
     def setUp(self):
@@ -74,18 +77,18 @@ class TestAuthorizedUser(TestCase):
 
         response = self.client.get(
             reverse(
-            "post_edit",
-            kwargs={"username": "kenga", "post_id": 1}
+                "post_edit",
+                kwargs={"username": "kenga", "post_id": 1}
             )
-            )
+        )
         self.assertEqual(response.status_code, 200)
         self.client.post(
             reverse(
-            "post_edit",
-            kwargs={"username": "kenga", "post_id": 1}
+                "post_edit",
+                kwargs={"username": "kenga", "post_id": 1}
             ),
             {'text': "Just text"}
-            )
+        )
         self.check_post_on_pages(text="Just text")
         self.check_post_in_database(text="Just text")
     
@@ -96,18 +99,18 @@ class TestAuthorizedUser(TestCase):
 
         response = self.client.get(
             reverse(
-            "post_edit",
-            kwargs={"username": "kenga", "post_id": 1}
+                "post_edit",
+                kwargs={"username": "kenga", "post_id": 1}
             )
-            )
+        )
         self.assertEqual(response.status_code, 200)
         self.client.post(
             reverse(
-            "post_edit",
-            kwargs={"username": "kenga", "post_id": 1}
+                "post_edit",
+                kwargs={"username": "kenga", "post_id": 1}
             ),
             {'text': "Just text", 'group': self.group_2.id}
-            )
+        )
         self.check_post_on_pages(text="Just text", group="jag")
         self.check_post_in_database(text="Just text", group="jag")
         response = self.client.get(reverse("group_posts", kwargs={"slug": "gtt"}))
@@ -125,11 +128,7 @@ class TestErrorPages(TestCase):
 
 
 @override_settings(
-    CACHES={
-        'default': {
-            'BACKEND': 'django.core.cache.backends.dummy.DummyCache'
-        }
-    },
+    CACHES=DUMMY_CACHES,
 )
 class TestImageUpload(TestCase):
     def setUp(self):
@@ -141,11 +140,16 @@ class TestImageUpload(TestCase):
         )
         self.group = Group.objects.create(title="group to test", slug="gtt")
         self.client.force_login(self.user)
-        with open('posts/media/file.jpg','rb') as img:
-            post = self.client.post(
-                reverse("new_post"),
-                {'text': 'post with image', 'image': img, 'group': self.group.id}
-                )
+        small_gif = (
+            b'\x47\x49\x46\x38\x39\x61\x01\x00\x01\x00\x00\x00\x00\x21\xf9\x04'
+            b'\x01\x0a\x00\x01\x00\x2c\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02'
+            b'\x02\x4c\x01\x00\x3b'
+        )
+        img = SimpleUploadedFile("test-img.gif", small_gif, content_type='image/gif')
+        post = self.client.post(
+            reverse("new_post"),
+            {'text': 'post with image', 'image': img, 'group': self.group.id}
+        )
 
     def check_image(self, username="kenga", post_id=1, group=None):
         response = self.client.get(reverse("profile", kwargs={"username": username}))
@@ -163,13 +167,18 @@ class TestImageUpload(TestCase):
 
     def test_image_post_edit(self):
         self.group_2 = Group.objects.create(title="just another group", slug="jag")
-        with open('posts/media/file_2.jpg','rb') as img:
-            post = self.client.post(
-                    reverse("post_edit",
-                        kwargs={"username": "kenga", "post_id": 1}
-                        ),
-                    {'text': 'changed post with image', 'image': img, 'group': self.group_2.id}
-                    )
+        small_gif_2 = (
+            b'\x47\x49\x46\x38\x39\x61\x01\x00\x01\x00\x00\x00\x00\x21\xf9\x04'
+            b'\x01\x0a\x00\x01\x00\x2c\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02'
+            b'\x02\x4c\x01\x00\x3b'
+        )
+        img = SimpleUploadedFile("test-img-2.gif", small_gif_2, content_type='image/gif')
+        post = self.client.post(
+            reverse("post_edit",
+                kwargs={"username": "kenga", "post_id": 1}
+                ),
+            {'text': 'changed post with image', 'image': img, 'group': self.group_2.id}
+        )
         self.assertEqual(Post.objects.count(), 1)
         response = self.client.get(reverse("group_posts", kwargs={"slug": "jag"}))
         self.assertContains(response, "<img")
@@ -177,18 +186,18 @@ class TestImageUpload(TestCase):
     
     def test_non_image_upload(self):
         self.assertEqual(Post.objects.count(), 1)
-        with open('posts/urls.py','rb') as img:
-                post = self.client.post(
-                    reverse("new_post"),
-                    {'text': 'post with no-image', 'image': img}
-                    )
+        img = SimpleUploadedFile("test.txt", b'ifuckinghatefakeimageupload')
+        post = self.client.post(
+            reverse("new_post"),
+            {'text': 'post with no-image', 'image': img}
+        )
         self.assertFormError(
             post,
             form='form',
             field='image',
             errors='Загрузите правильное изображение. Файл, который вы загрузили, поврежден или не является изображением.',
             msg_prefix=''
-            )
+        )
 
 
 class TestCacheIndexPage(TestCase):
@@ -220,11 +229,7 @@ class TestCacheIndexPage(TestCase):
 
 
 @override_settings(
-    CACHES={
-        'default': {
-            'BACKEND': 'django.core.cache.backends.dummy.DummyCache'
-        }
-    },
+    CACHES=DUMMY_CACHES,
 )
 class TestPostComments(TestCase):
     def setUp(self):
@@ -241,6 +246,7 @@ class TestPostComments(TestCase):
         self.assertContains(response, self.post_to_comment.text)
         comment = self.client.get(reverse('add_comment', kwargs={"username": "kenga", "post_id": 1}))
         self.assertEqual(comment.status_code, 302, msg='commenting not available to unauthorized')
+        self.assertEqual(Comment.objects.count(), 0)
 
     def test_authorized_to_comment(self):
         self.user_2 = User.objects.create_user(
@@ -250,19 +256,20 @@ class TestPostComments(TestCase):
         )
         self.client.force_login(self.user_2)
         post = self.client.post(reverse('add_comment', kwargs={"username": "kenga", "post_id": 1}), {'text': 'Just comment'})
-        # self.assertEqual(comment.status_code, 200, msg='commenting available to authorized')
         response = self.client.get(reverse('post', kwargs={"username": "kenga", "post_id": 1}))
         self.assertContains(response, 'Just comment')
         self.assertIsInstance(response.context["comments"][0], Comment, msg="comment added")
         self.assertEqual(len(response.context['comments']), 1)
 
+        self.assertEqual(Comment.objects.count(), 1)
+        comment_to_check = Comment.objects.get(id=1)
+        self.assertEqual(comment_to_check.author, self.user_2)
+        self.assertEqual(comment_to_check.text, "Just comment")
+        self.assertEqual(comment_to_check.post.id, 1)
+
 
 @override_settings(
-    CACHES={
-        'default': {
-            'BACKEND': 'django.core.cache.backends.dummy.DummyCache'
-        }
-    },
+    CACHES=DUMMY_CACHES,
 )
 class TestFollowSystem(TestCase):
     def setUp(self):
@@ -288,8 +295,15 @@ class TestFollowSystem(TestCase):
         self.client.force_login(self.user)
         follow = self.client.get(reverse('profile_follow', kwargs={"username":"snork"}))
         self.assertTrue(Follow.objects.filter(user=self.user, author=self.user_2).exists())
+        self.assertEqual(Follow.objects.count(), 1)
+        follower = Follow.objects.get(id=1)
+        self.assertEqual(follower.user, self.user)
+        self.assertEqual(follower.author, self.user_2)
+
+    def test_unfollow(self):
         unfollow = self.client.get(reverse('profile_unfollow', kwargs={"username":"snork"}))
         self.assertFalse(Follow.objects.filter(user=self.user, author=self.user_2).exists())
+        self.assertEqual(Follow.objects.count(), 0)
 
     def test_following_post_appearance(self):
         link_1 = Follow.objects.create(user=self.user_3, author=self.user_2)
@@ -299,7 +313,9 @@ class TestFollowSystem(TestCase):
         response_1 = self.client.get(reverse('follow_index'))
         self.assertEqual(len(response_1.context["page"]), 1, msg="post in follower follow index page")
         self.client.logout()
+    
+    def test_nonfollowing_post_not_appear(self):
         self.client.force_login(self.user_2)
         response_2 = self.client.get(reverse('follow_index'))
+        self.assertEqual(Post.objects.count(), 1)
         self.assertEqual(len(response_2.context['page']), 0, msg='no post in non-follower page')
-
